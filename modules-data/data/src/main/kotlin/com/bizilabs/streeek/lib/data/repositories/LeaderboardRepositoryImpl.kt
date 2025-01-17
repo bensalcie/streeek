@@ -55,12 +55,6 @@ internal class LeaderboardRepositoryImpl(
         ).flow
     }
 
-    override suspend fun getDaily(page: Int): DataResult<LeaderboardDomain> {
-        val accountId = getAccountId() ?: return DataResult.Error("Couldn't find account")
-        return remoteSource.fetchDailyLeaderboard(accountId = accountId, page = page)
-            .asDataResult { it.toDomain(name = Leaderboard.DAILY.name, page = page) }
-    }
-
     override suspend fun getWeekly(page: Int): DataResult<LeaderboardDomain> {
         val accountId = getAccountId() ?: return DataResult.Error("Couldn't find account")
         return remoteSource.fetchWeeklyLeaderboard(accountId = accountId, page = page)
@@ -75,7 +69,7 @@ internal class LeaderboardRepositoryImpl(
 
     override suspend fun getUltimate(page: Int): DataResult<LeaderboardDomain> {
         val accountId = getAccountId() ?: return DataResult.Error("Couldn't find account")
-        return remoteSource.fetchMonthlyLeaderboard(accountId = accountId, page = page)
+        return remoteSource.fetchUltimateLeaderboard(accountId = accountId, page = page)
             .asDataResult { it.toDomain(name = Leaderboard.ULTIMATE.name, page = page) }
     }
 

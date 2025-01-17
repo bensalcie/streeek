@@ -12,6 +12,7 @@ import com.bizilabs.streeek.feature.profile.profileModule
 import com.bizilabs.streeek.feature.setup.setupModule
 import com.bizilabs.streeek.feature.tabs.FeatureTabsModule
 import com.bizilabs.streeek.feature.team.FeatureTeamModule
+import com.bizilabs.streeek.feature.updater.AppUpdaterModule
 import com.bizilabs.streeek.lib.domain.workers.SyncAccountWork
 import com.bizilabs.streeek.lib.domain.workers.SyncContributionsWork
 import com.bizilabs.streeek.lib.domain.workers.SyncDailyContributionsWork
@@ -49,6 +50,7 @@ val PresentationModule =
             FeatureIssueModule,
             FeatureLeaderboard,
             FeaturePoints,
+            AppUpdaterModule,
         )
         workerOf(::SyncTeamsWork)
         workerOf(::SyncLevelsWork)

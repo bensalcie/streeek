@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -532,6 +533,18 @@ fun ManageTeamSection(
             onValueChange = onValueChangeName,
             label = {
                 Text(text = "Name")
+            },
+            singleLine = true,
+            isError = !state.isValidName && state.name.isNotBlank(),
+            trailingIcon = {
+                if (!state.isValidName && state.name.isNotBlank()) {
+                    Icon(Icons.Rounded.Error, "error")
+                }
+            },
+            supportingText = {
+                if (!state.isValidName && state.name.isNotBlank()) {
+                    Text(text = stringResource(SafiStrings.InvalidTeamName))
+                }
             },
         )
         Spacer(modifier = Modifier.padding(8.dp))

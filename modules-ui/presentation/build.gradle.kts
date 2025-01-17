@@ -27,6 +27,7 @@ dependencies {
     implementation(projects.modulesFeatures.issue)
     implementation(projects.modulesFeatures.leaderboard)
     implementation(projects.modulesFeatures.points)
+    implementation(projects.modulesFeatures.updater)
 
     // splash screen
     implementation(libs.androidx.core.splashscreen)
