@@ -1,11 +1,11 @@
 package com.bizilabs.streeek.feature.profile
 
-import android.R.attr.onClick
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,12 +44,13 @@ import cafe.adriel.voyager.core.registry.screenModule
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import com.bizilabs.streeek.lib.common.navigation.SharedScreen
 import com.bizilabs.streeek.lib.design.components.DialogState
 import com.bizilabs.streeek.lib.design.components.SafiBottomDialog
 import com.bizilabs.streeek.lib.design.components.SafiCenteredColumn
 import com.bizilabs.streeek.lib.design.components.SafiTopBarHeader
+import com.bizilabs.streeek.lib.design.components.shimmerEffect
 import com.bizilabs.streeek.lib.domain.helpers.toTimeAgo
 import com.bizilabs.streeek.lib.resources.strings.SafiStringLabels
 
@@ -138,42 +139,50 @@ fun ProfileScreenContent(
                         .scrollable(state = scrollState, orientation = Orientation.Vertical),
             ) {
                 SafiCenteredColumn(modifier = Modifier.fillMaxWidth()) {
-                    state.account?.let { account ->
-                        Card(
-                            modifier = Modifier.padding(16.dp),
-                            onClick = {},
-                            shape = RoundedCornerShape(50),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground),
-                        ) {
-                            AsyncImage(
-                                modifier =
-                                    Modifier
-                                        .size(150.dp)
-                                        .clip(RoundedCornerShape(50)),
-                                model = state.account.avatarUrl,
-                                contentDescription = "user avatar url",
-                                contentScale = ContentScale.Crop,
-                            )
-                        }
-                        account.level?.let { level ->
-                            Text(text = "LV.${level.number}")
-                            Text(text = level.name)
-                        }
-                        Text(text = account.username)
-                        Text(text = account.email)
-                        Text(
-                            modifier = Modifier.fillMaxWidth(0.75f),
-                            text = account.bio,
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            text =
-                                buildString {
-                                    append("Joined : ")
-                                    append(account.createdAt.toTimeAgo())
-                                },
+                    Card(
+                        modifier = Modifier.padding(16.dp),
+                        onClick = {},
+                        shape = RoundedCornerShape(50),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground),
+                    ) {
+                        SubcomposeAsyncImage(
+                            modifier =
+                                Modifier
+                                    .size(150.dp)
+                                    .clip(RoundedCornerShape(50)),
+                            model = state.account?.avatarUrl ?: "",
+                            contentDescription = "user avatar url",
+                            contentScale = ContentScale.Crop,
+                            loading = {
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxSize()
+                                            .shimmerEffect(),
+                                )
+                            },
                         )
                     }
+
+                    state.account?.level?.number?.let { number ->
+                        Text(text = "LV.$number")
+                    }
+                    Text(text = state.account?.level?.name ?: "")
+
+                    Text(text = state.account?.username ?: "")
+                    Text(text = state.account?.email ?: "")
+                    Text(
+                        modifier = Modifier.fillMaxWidth(0.75f),
+                        text = state.account?.bio ?: "",
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text =
+                            buildString {
+                                append("Joined : ")
+                                append(state.account?.createdAt?.toTimeAgo() ?: "")
+                            },
+                    )
                 }
 
                 ProfileItemComponent(

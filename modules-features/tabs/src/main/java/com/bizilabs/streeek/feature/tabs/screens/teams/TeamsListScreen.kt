@@ -11,15 +11,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.TransitEnterexit
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,15 +28,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
 import cafe.adriel.voyager.core.registry.rememberScreen
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import com.bizilabs.streeek.feature.tabs.screens.teams.components.TeamComponent
+import com.bizilabs.streeek.feature.tabs.screens.teams.components.TeamEmptyListSection
 import com.bizilabs.streeek.lib.common.navigation.SharedScreen
-import com.bizilabs.streeek.lib.design.components.SafiCenteredColumn
-import com.bizilabs.streeek.lib.design.components.SafiInfoSection
 import com.bizilabs.streeek.lib.design.components.SafiRefreshBox
+import com.bizilabs.streeek.lib.domain.models.TeamAndMembersDomain
 import com.bizilabs.streeek.lib.domain.models.TeamDetailsDomain
 import com.bizilabs.streeek.lib.resources.strings.SafiStringLabels
 import java.util.Locale
@@ -51,12 +50,15 @@ object TeamsListScreen : Screen {
 
         val screenModel: TeamsListScreenModel = getScreenModel()
         val state by screenModel.state.collectAsStateWithLifecycle()
+        val availableTeams = screenModel.availableTeams.collectAsLazyPagingItems()
 
         TeamsListScreenContent(
             state = state,
+            availableTeams = availableTeams,
             onClickMenuCreateTeam = screenModel::onClickMenuTeamCreate,
             onClickMenuJoinTeam = screenModel::onClickMenuTeamJoin,
             onClickSwipeToRefreshTeam = screenModel::onClickMenuRefreshTeam,
+            onClickTeamRequest = screenModel::onClickTeamRequest,
             onClickTeam = screenModel::onClickTeam,
         ) { screen ->
             navigator?.push(screen)
@@ -68,22 +70,24 @@ object TeamsListScreen : Screen {
 @Composable
 fun TeamsListScreenContent(
     state: TeamsListScreenState,
+    availableTeams: LazyPagingItems<TeamAndMembersDomain>,
     onClickMenuCreateTeam: () -> Unit,
     onClickMenuJoinTeam: () -> Unit,
     onClickSwipeToRefreshTeam: () -> Unit,
     onClickTeam: (TeamDetailsDomain) -> Unit,
+    onClickTeamRequest: (TeamAndMembersDomain) -> Unit,
     navigate: (Screen) -> Unit,
 ) {
     if (state.isCreating) {
-        navigate(rememberScreen(SharedScreen.Team(isJoining = false, teamId = null)))
+        navigate(rememberScreen(SharedScreen.Team(teamId = null)))
     }
 
     if (state.isJoining) {
-        navigate(rememberScreen(SharedScreen.Team(isJoining = true, teamId = null)))
+        navigate(rememberScreen(SharedScreen.Join))
     }
 
     if (state.teamId != null) {
-        navigate(rememberScreen(SharedScreen.Team(isJoining = false, teamId = state.teamId)))
+        navigate(rememberScreen(SharedScreen.Team(teamId = state.teamId)))
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -100,38 +104,24 @@ fun TeamsListScreenContent(
 
             when {
                 state.teams.isEmpty() -> {
-                    SafiCenteredColumn(modifier = Modifier.fillMaxSize()) {
-                        SafiInfoSection(
-                            icon = Icons.Rounded.People,
-                            title = "Empty",
-                            description = "Join a team to continue",
-                        )
-
-                        Button(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 16.dp)
-                                    .padding(horizontal = 16.dp),
-                            onClick = onClickMenuCreateTeam,
-                        ) {
-                            Text(text = "Create Team")
-                        }
-
-                        OutlinedButton(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp),
-                            onClick = onClickMenuJoinTeam,
-                        ) {
-                            Text(text = "Join Team")
-                        }
-                    }
+                    TeamEmptyListSection(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(top = innerPadding.calculateTopPadding()),
+                        state = state,
+                        availableTeams = availableTeams,
+                        onClickTeamRequest = onClickTeamRequest,
+                        onClickCreateTeam = onClickMenuCreateTeam,
+                    )
                 }
+
                 else -> {
                     SafiRefreshBox(
-                        modifier = Modifier.fillMaxSize().padding(innerPadding),
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(top = innerPadding.calculateTopPadding()),
                         isRefreshing = state.isSyncing,
                         onRefresh = onClickSwipeToRefreshTeam,
                     ) {

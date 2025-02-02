@@ -22,12 +22,15 @@ dependencies {
     implementation(projects.modulesFeatures.setup)
     implementation(projects.modulesFeatures.profile)
     implementation(projects.modulesFeatures.team)
-    implementation(projects.modulesFeatures.notifications)
     implementation(projects.modulesFeatures.issues)
     implementation(projects.modulesFeatures.issue)
     implementation(projects.modulesFeatures.leaderboard)
     implementation(projects.modulesFeatures.points)
     implementation(projects.modulesFeatures.updater)
+    implementation(projects.modulesFeatures.join)
+    implementation(projects.modulesFeatures.notifications)
+    implementation(projects.modulesFeatures.services)
+    implementation(projects.modulesFeatures.onboarding)
 
     // splash screen
     implementation(libs.androidx.core.splashscreen)

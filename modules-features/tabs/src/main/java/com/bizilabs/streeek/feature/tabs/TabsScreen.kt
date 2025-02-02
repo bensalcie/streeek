@@ -3,8 +3,12 @@ package com.bizilabs.streeek.feature.tabs
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -23,10 +27,9 @@ import cafe.adriel.voyager.koin.getScreenModel
 import com.bizilabs.streeek.feature.tabs.screens.achievements.AchievementsScreen
 import com.bizilabs.streeek.feature.tabs.screens.feed.FeedScreen
 import com.bizilabs.streeek.feature.tabs.screens.leaderboard.LeaderboardListScreen
+import com.bizilabs.streeek.feature.tabs.screens.notifications.NotificationsScreen
 import com.bizilabs.streeek.feature.tabs.screens.teams.TeamsListScreen
 import com.bizilabs.streeek.lib.common.navigation.SharedScreen
-import com.bizilabs.streeek.lib.design.helpers.SetupNavigationBarColor
-import com.bizilabs.streeek.lib.design.helpers.SetupStatusBarColor
 
 val featureTabs =
     screenModule {
@@ -36,9 +39,6 @@ val featureTabs =
 object TabsScreen : Screen {
     @Composable
     override fun Content() {
-        SetupNavigationBarColor(color = MaterialTheme.colorScheme.surface)
-        SetupStatusBarColor(color = MaterialTheme.colorScheme.surface)
-
         val activity = LocalContext.current as Activity
         val screenModel: TabsScreenModel = getScreenModel()
         val state by screenModel.state.collectAsStateWithLifecycle()
@@ -66,23 +66,31 @@ fun TabsScreenContent(
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
             ) {
-                Tabs.entries.forEach { item ->
-                    NavigationBarItem(
-                        colors =
-                            NavigationBarItemDefaults.colors(
-                                indicatorColor = Color.Transparent,
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(0.25f),
-                            ),
-                        selected = item == state.tab,
-                        icon = {
-                            Icon(
-                                imageVector = if (item == state.tab) item.icon.second else item.icon.first,
-                                contentDescription = item.label,
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    HorizontalDivider()
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Tabs.entries.forEach { item ->
+                            NavigationBarItem(
+                                colors =
+                                    NavigationBarItemDefaults.colors(
+                                        indicatorColor = Color.Transparent,
+                                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                                        unselectedIconColor =
+                                            MaterialTheme.colorScheme.onSurface.copy(
+                                                0.25f,
+                                            ),
+                                    ),
+                                selected = item == state.tab,
+                                icon = {
+                                    Icon(
+                                        imageVector = if (item == state.tab) item.icon.second else item.icon.first,
+                                        contentDescription = item.label,
+                                    )
+                                },
+                                onClick = { onValueChangeTab(item) },
                             )
-                        },
-                        onClick = { onValueChangeTab(item) },
-                    )
+                        }
+                    }
                 }
             }
         },
@@ -101,6 +109,7 @@ fun TabsScreenContent(
                     Tabs.LEADERBOARD -> LeaderboardListScreen
                     Tabs.TEAMS -> TeamsListScreen
                     Tabs.ACHIEVEMENTS -> AchievementsScreen
+                    Tabs.NOTIFICATIONS -> NotificationsScreen
                 }
             screen.Content()
         }

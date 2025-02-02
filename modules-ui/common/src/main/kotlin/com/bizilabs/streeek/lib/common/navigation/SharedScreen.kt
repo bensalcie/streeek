@@ -5,6 +5,8 @@ import cafe.adriel.voyager.core.registry.ScreenProvider
 sealed class SharedScreen : ScreenProvider {
     object Landing : SharedScreen()
 
+    object OnBoarding : SharedScreen()
+
     object Authentication : SharedScreen()
 
     object Tabs : SharedScreen()
@@ -13,9 +15,7 @@ sealed class SharedScreen : ScreenProvider {
 
     object Profile : SharedScreen()
 
-    class Team(val isJoining: Boolean = false, val teamId: Long?) : SharedScreen()
-
-    object Notifications : SharedScreen()
+    class Team(val teamId: Long?) : SharedScreen()
 
     object Issues : SharedScreen()
 
@@ -24,4 +24,8 @@ sealed class SharedScreen : ScreenProvider {
     data class Leaderboard(val name: String) : SharedScreen()
 
     object Points : SharedScreen()
+
+    object Join : SharedScreen()
+
+    object Notifications : SharedScreen()
 }

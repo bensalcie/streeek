@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material3.Button
@@ -38,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -50,9 +52,9 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import com.bizilabs.streeek.feature.team.components.TeamInvitationBottomSheet
-import com.bizilabs.streeek.feature.team.components.TeamJoiningSection
 import com.bizilabs.streeek.feature.team.components.TeamMemberComponent
 import com.bizilabs.streeek.feature.team.components.TeamTopMemberComponent
+import com.bizilabs.streeek.feature.team.section.TeamJoinRequestsBottomSheet
 import com.bizilabs.streeek.lib.common.components.paging.SafiPagingComponent
 import com.bizilabs.streeek.lib.common.models.FetchState
 import com.bizilabs.streeek.lib.common.navigation.SharedScreen
@@ -64,6 +66,9 @@ import com.bizilabs.streeek.lib.design.components.SafiInfoSection
 import com.bizilabs.streeek.lib.design.components.SafiRefreshBox
 import com.bizilabs.streeek.lib.design.components.SafiTopBarHeader
 import com.bizilabs.streeek.lib.domain.models.TeamMemberDomain
+import com.bizilabs.streeek.lib.domain.models.team.AccountsNotInTeamDomain
+import com.bizilabs.streeek.lib.domain.models.team.TeamAccountInvitesDomain
+import com.bizilabs.streeek.lib.domain.models.team.TeamAccountJoinRequestDomain
 import com.bizilabs.streeek.lib.domain.models.team.TeamInvitationDomain
 import com.bizilabs.streeek.lib.resources.strings.SafiStrings
 import nl.dionsegijn.konfetti.compose.KonfettiView
@@ -74,29 +79,26 @@ import java.util.concurrent.TimeUnit
 
 val screenTeam =
     screenModule {
-        register<SharedScreen.Team> { parameters ->
-            TeamScreen(
-                parameters.isJoining,
-                parameters.teamId,
-            )
-        }
+        register<SharedScreen.Team> { parameters -> TeamScreen(parameters.teamId) }
     }
 
-class TeamScreen(
-    val isJoining: Boolean,
-    val teamId: Long?,
-) : Screen {
+class TeamScreen(val teamId: Long?) : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.current
         val screenModel: TeamScreenModel = getScreenModel()
-        screenModel.setNavigationVariables(isJoining = isJoining, teamId = teamId)
+        screenModel.setNavigationVariables(teamId = teamId)
         val state by screenModel.state.collectAsStateWithLifecycle()
-        val data = screenModel.pages.collectAsLazyPagingItems()
+        val members = screenModel.pages.collectAsLazyPagingItems()
+        val requests = screenModel.requests.collectAsLazyPagingItems()
+        val accountsNotInTeam = screenModel.accountsNotInTeam.collectAsLazyPagingItems()
+        val teamAccountsInvites = screenModel.teamAccountInvites.collectAsLazyPagingItems()
 
         TeamScreenContent(
             state = state,
-            data = data,
+            data = members,
+            requests = requests,
+            teamAccountsInvites = teamAccountsInvites,
             onClickBack = { navigator?.pop() },
             onValueChangeName = screenModel::onValueChangeName,
             onValueChangePublic = screenModel::onValueChangePublic,
@@ -104,17 +106,28 @@ class TeamScreen(
             onClickDismissDialog = screenModel::onClickDismissDialog,
             onClickManageAction = screenModel::onClickManageAction,
             onDismissInvitationsSheet = screenModel::onDismissInvitationsSheet,
+            onDismissRequestsSheet = screenModel::onDismissRequestsSheet,
             onClickMenuAction = screenModel::onClickMenuAction,
-            onClickInvitationGet = screenModel::onClickInvitationGet,
+            onClickRefreshInvitation = screenModel::onClickRefreshInvitation,
             onClickInvitationCreate = screenModel::onClickInvitationCreate,
             onClickInvitationRetry = screenModel::onClickInvitationRetry,
             onSwipeInvitationDelete = screenModel::onSwipeInvitationDelete,
             onClickActionCancel = screenModel::onClickManageCancelAction,
             onClickActionDelete = screenModel::onClickManageDeleteAction,
-            onValueChangeTeamCode = screenModel::onValueChangeTeamCode,
-            onClickJoin = screenModel::onClickJoin,
             onClickInviteMore = screenModel::onClickInviteMore,
             onRefreshTeams = screenModel::onRefreshTeams,
+            onClickRequests = screenModel::onClickRequests,
+            onClickToggleSelectRequest = screenModel::onClickToggleSelectRequest,
+            onClickProcessSelectedRequests = screenModel::onClickProcessSelectedRequests,
+            onClickSelectedRequestsSelection = screenModel::onClickSelectedRequestsSelection,
+            onClickProcessRequest = screenModel::onClickProcessRequest,
+            onSuccessOrErrorCodeCreation = screenModel::onSuccessOrErrorCodeCreation,
+            accountsNotInTeam = accountsNotInTeam,
+            onClickInviteAccount = screenModel::onClickInviteAccount,
+            onSearchParamChanged = screenModel::onSearchParamChanged,
+            onClickClearSearch = screenModel::onClickClearSearch,
+            onClickTab = screenModel::onClickTab,
+            onClickWithdraw = screenModel::onClickWithdrawAccount,
         )
     }
 }
@@ -123,6 +136,8 @@ class TeamScreen(
 fun TeamScreenContent(
     state: TeamScreenState,
     data: LazyPagingItems<TeamMemberDomain>,
+    requests: LazyPagingItems<TeamAccountJoinRequestDomain>,
+    teamAccountsInvites: LazyPagingItems<TeamAccountInvitesDomain>,
     onClickBack: () -> Unit,
     onValueChangeName: (String) -> Unit,
     onValueChangePublic: (String) -> Unit,
@@ -132,15 +147,26 @@ fun TeamScreenContent(
     onClickActionDelete: () -> Unit,
     onClickActionCancel: () -> Unit,
     onDismissInvitationsSheet: () -> Unit,
+    onDismissRequestsSheet: () -> Unit,
     onClickMenuAction: (TeamMenuAction) -> Unit,
-    onClickInvitationGet: () -> Unit,
+    onClickRefreshInvitation: () -> Unit,
     onClickInvitationCreate: () -> Unit,
     onClickInvitationRetry: () -> Unit,
     onSwipeInvitationDelete: (TeamInvitationDomain) -> Unit,
-    onValueChangeTeamCode: (String) -> Unit,
-    onClickJoin: () -> Unit,
     onClickInviteMore: () -> Unit,
     onRefreshTeams: () -> Unit,
+    onClickRequests: () -> Unit,
+    onClickToggleSelectRequest: (TeamAccountJoinRequestDomain) -> Unit,
+    onClickProcessSelectedRequests: (Boolean) -> Unit,
+    onClickSelectedRequestsSelection: (SelectionAction, List<TeamAccountJoinRequestDomain>) -> Unit,
+    onClickProcessRequest: (TeamAccountJoinRequestDomain, TeamRequestAction) -> Unit,
+    onSuccessOrErrorCodeCreation: (SnackBarType) -> Unit,
+    accountsNotInTeam: LazyPagingItems<AccountsNotInTeamDomain>,
+    onClickInviteAccount: (AccountsNotInTeamDomain) -> Unit,
+    onSearchParamChanged: (String) -> Unit,
+    onClickClearSearch: () -> Unit,
+    onClickTab: (TeamJoinersTab) -> Unit,
+    onClickWithdraw: (TeamAccountInvitesDomain) -> Unit,
 ) {
     val activity = LocalContext.current as Activity
 
@@ -157,6 +183,21 @@ fun TeamScreenContent(
         )
     }
 
+    if (state.isRequestsSheetOpen) {
+        TeamJoinRequestsBottomSheet(
+            state = state,
+            requestsData = requests,
+            teamAccountsInvites = teamAccountsInvites,
+            onDismissSheet = onDismissRequestsSheet,
+            onClickToggleSelectRequest = onClickToggleSelectRequest,
+            onClickProcessSelectedRequests = onClickProcessSelectedRequests,
+            onClickSelectedRequestsSelection = onClickSelectedRequestsSelection,
+            onClickProcessRequest = onClickProcessRequest,
+            onClickTab = onClickTab,
+            onClickWithdraw = onClickWithdraw,
+        )
+    }
+
     if (state.dialogState != null) {
         SafiBottomDialog(
             state = state.dialogState,
@@ -169,10 +210,15 @@ fun TeamScreenContent(
             activity = activity,
             state = state,
             onDismissSheet = onDismissInvitationsSheet,
-            onClickInvitationGet = onClickInvitationGet,
+            onClickRefreshInvitation = onClickRefreshInvitation,
             onClickInvitationRetry = onClickInvitationRetry,
             onClickInvitationCreate = onClickInvitationCreate,
             onSwipeInvitationDelete = onSwipeInvitationDelete,
+            onSuccessOrErrorCodeCreation = onSuccessOrErrorCodeCreation,
+            accountsNotInTeam = accountsNotInTeam,
+            onClickInviteAccount = onClickInviteAccount,
+            onSearchParamChanged = onSearchParamChanged,
+            onClickClearSearch = onClickClearSearch,
         )
     }
 
@@ -182,6 +228,7 @@ fun TeamScreenContent(
                 onClickBack = onClickBack,
                 state = state,
                 onClickMenuAction = onClickMenuAction,
+                onClickRequests = onClickRequests,
             )
         },
     ) { innerPadding ->
@@ -190,50 +237,28 @@ fun TeamScreenContent(
                 Modifier
                     .padding(innerPadding)
                     .fillMaxSize(),
-            targetState = state.isJoining,
-            label = "animate team joining",
-        ) { joining ->
-            when {
-                joining -> {
-                    TeamJoiningSection(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
+            targetState = state.isManagingTeam,
+            label = "",
+        ) { isManaging ->
+            when (isManaging) {
+                true -> {
+                    ManageTeamSection(
                         state = state,
-                        onValueChangeTeamCode = onValueChangeTeamCode,
-                        onClickJoin = onClickJoin,
+                        onValueChangeName = onValueChangeName,
+                        onValueChangePublicDropdown = onValueChangePublicDropdown,
+                        onClickAction = onClickManageAction,
+                        onClickActionDelete = onClickActionDelete,
+                        onClickActionCancel = onClickActionCancel,
                     )
                 }
 
-                else -> {
-                    AnimatedContent(
-                        modifier = Modifier.fillMaxSize(),
-                        targetState = state.isManagingTeam,
-                        label = "",
-                    ) { isManaging ->
-                        when (isManaging) {
-                            true -> {
-                                ManageTeamSection(
-                                    state = state,
-                                    onValueChangeName = onValueChangeName,
-                                    onValueChangePublicDropdown = onValueChangePublicDropdown,
-                                    onClickAction = onClickManageAction,
-                                    onClickActionDelete = onClickActionDelete,
-                                    onClickActionCancel = onClickActionCancel,
-                                )
-                            }
-
-                            false -> {
-                                ViewTeamSection(
-                                    state = state,
-                                    data = data,
-                                    onClickInviteMore = onClickInviteMore,
-                                    onRefreshTeams = onRefreshTeams,
-                                )
-                            }
-                        }
-                    }
+                false -> {
+                    ViewTeamSection(
+                        state = state,
+                        data = data,
+                        onClickInviteMore = onClickInviteMore,
+                        onRefreshTeams = onRefreshTeams,
+                    )
                 }
             }
         }
@@ -246,6 +271,7 @@ private fun TeamScreenHeaderComponent(
     state: TeamScreenState,
     onClickBack: () -> Unit,
     onClickMenuAction: (TeamMenuAction) -> Unit,
+    onClickRequests: () -> Unit,
 ) {
     TopAppBar(
         navigationIcon = {
@@ -264,10 +290,6 @@ private fun TeamScreenHeaderComponent(
                 label = "animate_team_title",
             ) { isManaging ->
                 when {
-                    state.isJoining -> {
-                        SafiTopBarHeader(title = "Join Team")
-                    }
-
                     isManaging -> {
                         SafiTopBarHeader(title = "Create Team")
                     }
@@ -292,40 +314,53 @@ private fun TeamScreenHeaderComponent(
         },
         actions = {
             var expanded by remember { mutableStateOf(false) }
-
             AnimatedVisibility(
                 visible = state.fetchState is FetchState.Success,
             ) {
                 if (state.fetchState is FetchState.Success) {
-                    Box(
-                        modifier = Modifier,
-                    ) {
-                        IconButton(onClick = { expanded = !expanded }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AnimatedVisibility(state.fetchState.value.details.role.isAdmin) {
+                            IconButton(onClick = onClickRequests) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Notifications,
+                                    contentDescription = "Notifications",
+                                )
+                            }
                         }
-                        DropdownMenu(
-                            modifier = Modifier.defaultMinSize(minWidth = 150.dp),
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false },
+                        Box(
+                            modifier = Modifier,
                         ) {
-                            TeamMenuAction
-                                .get(role = state.fetchState.value.details.role)
-                                .forEach { menu ->
-                                    DropdownMenuItem(
-                                        contentPadding = PaddingValues(start = 16.dp, end = 24.dp),
-                                        text = { Text(menu.label) },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = menu.icon,
-                                                contentDescription = null,
-                                            )
-                                        },
-                                        onClick = {
-                                            expanded = false
-                                            onClickMenuAction(menu)
-                                        },
-                                    )
-                                }
+                            IconButton(onClick = { expanded = !expanded }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                            }
+                            DropdownMenu(
+                                modifier = Modifier.defaultMinSize(minWidth = 150.dp),
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false },
+                            ) {
+                                TeamMenuAction
+                                    .get(role = state.fetchState.value.details.role)
+                                    .forEach { menu ->
+                                        DropdownMenuItem(
+                                            contentPadding =
+                                                PaddingValues(
+                                                    start = 16.dp,
+                                                    end = 24.dp,
+                                                ),
+                                            text = { Text(menu.label) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = menu.icon,
+                                                    contentDescription = null,
+                                                )
+                                            },
+                                            onClick = {
+                                                expanded = false
+                                                onClickMenuAction(menu)
+                                            },
+                                        )
+                                    }
+                            }
                         }
                     }
                 }
@@ -426,7 +461,14 @@ fun TeamDetailsSection(
                     }
                 },
             ) { member ->
-                TeamMemberComponent(member = member)
+                TeamMemberComponent(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 8.dp),
+                    member = member,
+                )
             }
         }
         AnimatedVisibility(

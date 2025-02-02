@@ -1,19 +1,24 @@
 package com.bizilabs.streeek.lib.design.components
 
-import androidx.compose.foundation.background
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowOutward
 import androidx.compose.material.icons.rounded.SignalWifi4Bar
 import androidx.compose.material.icons.rounded.SignalWifiConnectedNoInternet4
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -47,20 +52,46 @@ private fun getNetworkData(isNetworkConnected: Boolean) =
         )
     }
 
+fun Context.openNetworkSettings() {
+    val intent = Intent(Settings.ACTION_WIFI_SETTINGS)
+    startActivity(intent)
+}
+
 @Composable
-internal fun SafiNetworkComponent(isNetworkConnected: Boolean) {
+internal fun SafiNetworkComponent(
+    isNetworkConnected: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
     val data = getNetworkData(isNetworkConnected = isNetworkConnected)
-    SafiCenteredRow(modifier = Modifier.fillMaxWidth().background(data.backgroundColor)) {
-        SafiCenteredRow(modifier = Modifier.padding(8.dp)) {
+    SafiBottomInfoComponent(
+        modifier = modifier,
+        containerColor = data.backgroundColor,
+        contentColor = data.onBackgroundColor,
+        title = {
+            SafiCenteredRow(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Icon(
+                    modifier = Modifier.size(16.dp),
+                    imageVector = data.icon,
+                    contentDescription = stringResource(data.label),
+                    tint = data.onBackgroundColor,
+                )
+                Spacer(modifier = Modifier.padding(4.dp))
+                Text(
+                    text = stringResource(data.label),
+                    color = data.onBackgroundColor,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        },
+        message = {},
+    ) {
+        IconButton(onClick = { context.openNetworkSettings() }) {
             Icon(
-                imageVector = data.icon,
+                modifier = Modifier.size(16.dp),
+                imageVector = Icons.Rounded.ArrowOutward,
                 contentDescription = stringResource(data.label),
                 tint = data.onBackgroundColor,
-            )
-            Spacer(modifier = Modifier.padding(4.dp))
-            Text(
-                text = stringResource(data.label),
-                color = data.onBackgroundColor,
             )
         }
     }

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.bizilabs.streeek.lib.remote.helpers.createHttpClient
 import com.bizilabs.streeek.lib.remote.helpers.createSupabase
 import com.bizilabs.streeek.lib.remote.interceptor.AuthorizationInterceptor
+import com.bizilabs.streeek.lib.remote.interceptor.NetworkInterceptor
 import com.bizilabs.streeek.lib.remote.sources.account.AccountRemoteSource
 import com.bizilabs.streeek.lib.remote.sources.account.AccountRemoteSourceImpl
 import com.bizilabs.streeek.lib.remote.sources.auth.AuthenticationRemoteSource
@@ -27,8 +28,12 @@ import com.bizilabs.streeek.lib.remote.sources.preferences.RemotePreferencesSour
 import com.bizilabs.streeek.lib.remote.sources.preferences.RemotePreferencesSourceImpl
 import com.bizilabs.streeek.lib.remote.sources.team.TeamRemoteSource
 import com.bizilabs.streeek.lib.remote.sources.team.TeamRemoteSourceImpl
-import com.bizilabs.streeek.lib.remote.sources.team.invitations.TeamInvitationRemoteSource
-import com.bizilabs.streeek.lib.remote.sources.team.invitations.TeamInvitationRemoteSourceImpl
+import com.bizilabs.streeek.lib.remote.sources.team.invitations.TeamInvitationCodeRemoteSource
+import com.bizilabs.streeek.lib.remote.sources.team.invitations.TeamInvitationCodeRemoteSourceImpl
+import com.bizilabs.streeek.lib.remote.sources.team.invitations.TeamMemberInvitationRemoteSource
+import com.bizilabs.streeek.lib.remote.sources.team.invitations.TeamMemberInvitationRemoteSourceImpl
+import com.bizilabs.streeek.lib.remote.sources.team.requests.TeamRequestRemoteSource
+import com.bizilabs.streeek.lib.remote.sources.team.requests.TeamRequestRemoteSourceImpl
 import com.bizilabs.streeek.lib.remote.sources.user.UserRemoteSource
 import com.bizilabs.streeek.lib.remote.sources.user.UserRemoteSourceImpl
 import com.chuckerteam.chucker.api.ChuckerInterceptor
@@ -48,8 +53,10 @@ val RemoteModule =
         }
         single<ChuckerInterceptor> { ChuckerInterceptor(context = get()) }
         single<AuthorizationInterceptor> { AuthorizationInterceptor(remotePreferencesSource = get()) }
+        single<NetworkInterceptor> { NetworkInterceptor(context = get()) }
         single<HttpClient> {
             createHttpClient(
+                networkInterceptor = get(),
                 chuckerInterceptor = get(),
                 loggingInterceptor = get(),
                 authorizationInterceptor = get(),
@@ -80,10 +87,12 @@ val RemoteModule =
             )
         }
         single<TeamRemoteSource> { TeamRemoteSourceImpl(supabase = get()) }
-        single<TeamInvitationRemoteSource> { TeamInvitationRemoteSourceImpl(supabase = get()) }
+        single<TeamInvitationCodeRemoteSource> { TeamInvitationCodeRemoteSourceImpl(supabase = get()) }
         single<LevelRemoteSource> { LevelRemoteSourceImpl(supabase = get()) }
         single<NotificationRemoteSource> { NotificationRemoteSourceImpl(supabase = get()) }
         single<IssuesRemoteSource> { IssuesRemoteSourceImpl(client = get()) }
         single<LabelRemoteSource> { LabelRemoteSourceImpl(client = get()) }
         single<LeaderboardRemoteSource> { LeaderboardRemoteSourceImpl(supabase = get()) }
+        single<TeamRequestRemoteSource> { TeamRequestRemoteSourceImpl(supabase = get()) }
+        single<TeamMemberInvitationRemoteSource> { TeamMemberInvitationRemoteSourceImpl(supabase = get()) }
     }

@@ -1,8 +1,12 @@
 package com.bizilabs.streeek.feature.tabs.screens.feed
 
+import android.Manifest
 import android.content.Context
+import android.os.Build
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import com.bizilabs.streeek.lib.common.helpers.launcherState
+import com.bizilabs.streeek.lib.common.helpers.permissionIsGranted
 import com.bizilabs.streeek.lib.domain.models.AccountDomain
 import com.bizilabs.streeek.lib.domain.models.ContributionDomain
 import com.bizilabs.streeek.lib.domain.repositories.AccountRepository
@@ -20,6 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import org.koin.dsl.module
 
@@ -35,6 +40,42 @@ internal val FeedModule =
         }
     }
 
+enum class MonthAction {
+    PREVIOUS,
+    NEXT,
+}
+
+enum class StreakPosition {
+    FIRST,
+    MIDDLE,
+    LAST,
+    ALONE,
+}
+
+fun LocalDate.asStreakPosition(list: List<LocalDate>): StreakPosition? {
+    val sorted = list.sorted()
+    val index = sorted.indexOf(this)
+    if (index == -1) return null
+    val previousDate = sorted.getOrNull(index - 1)
+    val hasPreviousDay =
+        when (previousDate) {
+            null -> false
+            else -> dayOfYear.minus(previousDate.dayOfYear) == 1
+        }
+    val nextDate = sorted.getOrNull(index + 1)
+    val hasNextDay =
+        when (nextDate) {
+            null -> false
+            else -> nextDate.dayOfYear.minus(this.dayOfYear) == 1
+        }
+    return when {
+        hasPreviousDay && hasNextDay -> StreakPosition.MIDDLE
+        hasPreviousDay -> StreakPosition.LAST
+        hasNextDay -> StreakPosition.FIRST
+        else -> StreakPosition.ALONE
+    }
+}
+
 data class FeedScreenState(
     val isSyncing: Boolean = false,
     val isMonthView: Boolean = false,
@@ -42,6 +83,7 @@ data class FeedScreenState(
     val isFetchingContributions: Boolean = true,
     val selectedDate: LocalDate = LocalDate.now(),
     val dates: List<LocalDate> = emptyList(),
+    val isPermissionGranted: Boolean = true,
 ) {
     val isToday: Boolean
         get() = selectedDate == LocalDate.now()
@@ -53,7 +95,8 @@ class FeedScreenModel(
     private val preferenceRepository: PreferenceRepository,
     private val contributionRepository: ContributionRepository,
 ) : StateScreenModel<FeedScreenState>(FeedScreenState()) {
-    private val _date = MutableStateFlow(Clock.System.now().toLocalDateTime(TimeZone.UTC).date)
+    private val _date =
+        MutableStateFlow(Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date)
     val date = _date.asStateFlow()
 
     val contributions: Flow<List<ContributionDomain>> =
@@ -65,9 +108,27 @@ class FeedScreenModel(
         }
 
     init {
+        observeLauncherState()
+        checkNotificationPermission()
         observeDates()
         observeAccount()
         observeSyncingContributions()
+    }
+
+    private fun observeLauncherState() {
+        screenModelScope.launch {
+            launcherState.collectLatest { granted -> if (granted == true) checkNotificationPermission() }
+        }
+    }
+
+    private fun checkNotificationPermission() {
+        val granted =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.permissionIsGranted(permission = Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                true
+            }
+        mutableState.update { it.copy(isPermissionGranted = granted) }
     }
 
     private fun observeDates() {
