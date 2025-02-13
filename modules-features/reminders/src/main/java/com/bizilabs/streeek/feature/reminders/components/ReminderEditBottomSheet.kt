@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.rounded.AccessTimeFilled
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -29,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.bizilabs.streeek.feature.reminders.list.ReminderListScreenState
 import com.bizilabs.streeek.lib.design.components.SafiButton
 import com.bizilabs.streeek.lib.design.theme.SafiTheme
+import com.bizilabs.streeek.lib.resources.strings.SafiStrings
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DayOfWeek
 
@@ -140,6 +143,17 @@ private fun ReminderBottomSheetContent(
                         contentDescription = "update label",
                     )
                 },
+                isError = !state.isValidLabel && state.label.isNotBlank(),
+                supportingText = {
+                    if (!state.isValidLabel && state.label.isNotBlank()) {
+                        Text(text = stringResource(SafiStrings.InvalidReminderLabel))
+                    }
+                },
+                trailingIcon = {
+                    if (!state.isValidLabel && state.label.isNotBlank()) {
+                        Icon(Icons.Default.Error, "error")
+                    }
+                },
             )
             TextField(
                 value = state.time ?: "",
@@ -201,6 +215,7 @@ private fun ReminderBottomSheetContent(
                         .fillMaxWidth()
                         .padding(vertical = 16.dp),
                 onClick = onCreateReminder,
+                enabled = state.isEditActionEnabled,
             ) {
                 Text(text = if (state.selectedReminder != null) "update" else "create")
             }

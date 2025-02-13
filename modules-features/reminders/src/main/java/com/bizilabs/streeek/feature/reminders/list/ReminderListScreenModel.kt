@@ -29,6 +29,7 @@ data class ReminderListScreenState(
     val selectedHour: Int? = null,
     val selectedMinute: Int? = null,
     val isTimePickerOpen: Boolean = false,
+    val isUpdating: Boolean = false,
 ) {
     val isEditActionEnabled: Boolean
         get() =
@@ -39,7 +40,7 @@ data class ReminderListScreenState(
                 }
 
                 else -> {
-                    label.isNotBlank() && label.length > 4 && selectedDays.isNotEmpty() && selectedHour != null && selectedMinute != null
+                    isValidLabel && selectedDays.isNotEmpty() && selectedHour != null && selectedMinute != null
                 }
             }
 
@@ -49,6 +50,9 @@ data class ReminderListScreenState(
                 selectedHour != null && selectedMinute != null -> "$selectedHour:$selectedMinute"
                 else -> ""
             }
+
+    val isValidLabel: Boolean
+        get() = label.isNotBlank() && label.length > 3
 }
 
 class ReminderListScreenModel(
@@ -96,11 +100,21 @@ class ReminderListScreenModel(
     }
 
     fun onDismissSheet() {
-        mutableState.update { it.copy(isEditing = false, reminder = null) }
+        mutableState.update { it.copy(isEditing = false, reminder = null, isUpdating = false) }
     }
 
     fun onClickCreate() {
-        mutableState.update { it.copy(isEditing = true) }
+        mutableState.update {
+            it.copy(
+                isEditing = true,
+                label = "",
+                selectedHour = null,
+                selectedMinute = null,
+                selectedDays = emptyList(),
+                selectedReminder = null,
+                reminder = null,
+            )
+        }
     }
 
     fun onClickReminder(reminder: ReminderDomain) {
@@ -147,6 +161,7 @@ class ReminderListScreenModel(
                 )
             repository.update(
                 reminder = reminderDomain,
+                currentLabel = state.value.selectedReminder?.label,
             )
 
             manager.createAlarm(reminderDomain)
@@ -177,7 +192,69 @@ class ReminderListScreenModel(
             )
         }
     }
+
+    fun onLongClick(reminder: ReminderDomain) {
+        mutableState.update {
+            it.copy(
+                isUpdating = true,
+                reminder = reminder,
+                selectedReminder = reminder,
+            )
+        }
+    }
+
+    fun onDismissUpdateSheet() {
+        mutableState.update {
+            it.copy(
+                isUpdating = false,
+            )
+        }
+    }
+
+    fun editReminder(action: String) {
+        screenModelScope.launch {
+            when (action) {
+                UpdateReminderActions.ENABLE.name.lowercase() -> {
+                    repository.update(
+                        reminder =
+                            state.value.selectedReminder?.copy(enabled = true)
+                                ?: return@launch,
+                        "",
+                    )
+                    mutableState.update {
+                        it.copy(isUpdating = false)
+                    }
+                }
+
+                UpdateReminderActions.DISABLE.name.lowercase() -> {
+                    repository.update(
+                        reminder =
+                            state.value.selectedReminder?.copy(enabled = false)
+                                ?: return@launch,
+                        "",
+                    )
+                    mutableState.update {
+                        it.copy(
+                            isUpdating = false,
+                        )
+                    }
+                }
+
+                UpdateReminderActions.DELETE.name.lowercase() -> {
+                    repository.delete(reminder = state.value.selectedReminder ?: return@launch)
+                    mutableState.update {
+                        it.copy(
+                            isUpdating = false,
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
-// create - store locally
-// schedule
-//
+
+enum class UpdateReminderActions {
+    ENABLE,
+    DISABLE,
+    DELETE,
+}

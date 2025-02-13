@@ -1,5 +1,6 @@
 package com.bizilabs.streeek.feature.tabs.screens.achievements
 
+import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Settings
@@ -37,7 +41,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.registry.rememberScreen
 import cafe.adriel.voyager.core.screen.Screen
@@ -46,6 +52,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import coil.compose.SubcomposeAsyncImage
 import com.bizilabs.streeek.feature.tabs.screens.achievements.component.LevelComponent
 import com.bizilabs.streeek.lib.common.navigation.SharedScreen
+import com.bizilabs.streeek.lib.common.navigation.SharedScreen.Tabs.Companion.tab
 import com.bizilabs.streeek.lib.design.components.SafiCenteredColumn
 import com.bizilabs.streeek.lib.design.components.SafiCenteredRow
 import com.bizilabs.streeek.lib.design.components.SafiProfileArc
@@ -59,9 +66,11 @@ object AchievementsScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.current
+        val activity = LocalContext.current as ComponentActivity
         val profileScreen = rememberScreen(SharedScreen.Profile)
         val screenModel: AchievementsScreenModel = getScreenModel()
         val state by screenModel.state.collectAsStateWithLifecycle()
+
         AchievementsScreenContent(
             state = state,
             onClickTab = screenModel::onClickTab,
@@ -71,6 +80,11 @@ object AchievementsScreen : Screen {
                 navigator?.push(profileScreen)
             },
         )
+
+        LifecycleStartEffect(Unit) {
+            activity.let { screenModel.requestReview(it) }
+            onStopOrDispose { Timber.d("Achievements page is onStopOrDispose") }
+        }
     }
 }
 
@@ -82,6 +96,7 @@ fun AchievementsScreenContent(
     onClickRefreshProfile: () -> Unit,
     onClickTab: (AchievementTab) -> Unit,
 ) {
+    val pagerState = rememberPagerState(state.tabs.indexOf(state.tab)) { state.tabs.size }
     SafiRefreshBox(
         isRefreshing = state.isSyncingAccount,
         onRefresh = onClickRefreshProfile,
@@ -91,6 +106,7 @@ fun AchievementsScreenContent(
                 state = state,
                 onClickAccount = onClickAccount,
                 onClickTab = onClickTab,
+                pagerState = pagerState,
             )
         }) { paddingValues ->
             SafiCenteredColumn(
@@ -99,8 +115,11 @@ fun AchievementsScreenContent(
                         .padding(top = paddingValues.calculateTopPadding())
                         .fillMaxSize(),
             ) {
-                AnimatedContent(targetState = state.tab, label = "animate achievements") { tab ->
-                    when (tab) {
+                HorizontalPager(
+                    modifier = Modifier.fillMaxSize(),
+                    state = pagerState,
+                ) { pageIndex ->
+                    when (state.tabs[pageIndex]) {
                         AchievementTab.BADGES -> {
                             SafiCenteredColumn(modifier = Modifier.fillMaxSize()) {
                                 Text(text = "Coming soon...")
@@ -125,7 +144,10 @@ fun AchievementScreenHeader(
     state: AchievementScreenState,
     onClickAccount: () -> Unit,
     onClickTab: (AchievementTab) -> Unit,
+    pagerState: PagerState,
 ) {
+    val coroutineScope = rememberCoroutineScope()
+
     Surface(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -210,14 +232,19 @@ fun AchievementScreenHeader(
             }
             TabRow(
                 modifier = Modifier.fillMaxWidth(),
-                selectedTabIndex = state.tabs.indexOf(state.tab),
+                selectedTabIndex = pagerState.currentPage,
             ) {
-                state.tabs.forEach { tab ->
-                    val isSelected = tab == state.tab
+                state.tabs.forEachIndexed { index, tab ->
+                    val isSelected = pagerState.currentPage == index
                     val (selectedIcon, unselectedIcon) = tab.icon
                     Tab(
                         selected = isSelected,
-                        onClick = { onClickTab(tab) },
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(state.tabs.indexOf(tab))
+                            }
+                            onClickTab(tab)
+                        },
                         selectedContentColor = MaterialTheme.colorScheme.primary,
                         unselectedContentColor = MaterialTheme.colorScheme.onSurface.copy(0.25f),
                     ) {
